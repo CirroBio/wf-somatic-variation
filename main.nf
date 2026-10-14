@@ -180,8 +180,10 @@ workflow {
     //          `-resume` to break.
     if (params.annotation){
         getGenome(all_bams)
-        getGenome.out.genome_build.map{
-                bam, bai, meta, g_build -> 
+        getGenome.out.genome_build
+            .join(all_bams.map{ bam, bai, meta -> [meta, bam, bai] })
+            .map{
+                meta, g_build, bam, bai ->
                     [bam, bai, meta + [genome_build: g_build]]
             }.set{all_bams}
     } else {
@@ -272,8 +274,8 @@ workflow {
                     }
                 )
                 .mix(
-                    coverage_check.mosdepth_tuple.map{
-                        meta, filt_cvg, dist, threshold -> [filt_cvg, "${meta.sample}/qc/coverage"]
+                    coverage_check.filt_regions.map{
+                        meta, filt_cvg -> [filt_cvg, "${meta.sample}/qc/coverage"]
                     }
                 )
                 .set{ qc_outputs }

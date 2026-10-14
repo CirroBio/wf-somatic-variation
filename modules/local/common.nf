@@ -220,7 +220,7 @@ process getGenome {
     input:
         tuple path(xam), path(xam_idx), val(xam_meta)
     output:
-        tuple path(xam), path(xam_idx), val(xam_meta), env(genome_build), emit: genome_build, optional: true
+        tuple val(xam_meta), env(genome_build), emit: genome_build, optional: true
      script:
         """
         # use view -H rather than idxstats, as idxstats will still cause a scan of the whole CRAM (https://github.com/samtools/samtools/issues/303)
