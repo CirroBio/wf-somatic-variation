@@ -194,11 +194,9 @@ process select_het_snps {
 
 
 process phase_contig {
-    // Tags reads in an input BAM from heterozygous SNPs
-    // The haplotag step was removed in clair-v0.1.11 so this step re-emits
-    //   the original BAM and BAI as phased_bam for compatability,
-    //   but adds the VCF as it is now tagged with phasing information
-    //   used later in the full-alignment model
+    // Phases heterozygous SNPs; the phased VCF is used later in the
+    //   full-alignment model. Reads are not haplotagged (removed in
+    //   clair-v0.1.11), so the input BAM is used as-is downstream.
     label "wf_somatic_snv"
     cpus 4
     // Define memory from phasing tool and number of attempt
@@ -217,7 +215,7 @@ process phase_contig {
             path(ref_cache),
             env(REF_PATH)
     output:
-        tuple val(meta), val(contig), path(bam), path(bai), path("phased_${meta.sample}_${meta.type}_${contig}.vcf.gz"), path("phased_${meta.sample}_${meta.type}_${contig}.vcf.gz.tbi"), emit: phased_bam_and_vcf
+        tuple val(meta), val(contig), path("phased_${meta.sample}_${meta.type}_${contig}.vcf.gz"), path("phased_${meta.sample}_${meta.type}_${contig}.vcf.gz.tbi"), emit: phased_vcf
     script:
         if (params.use_longphase_intermediate)
         """

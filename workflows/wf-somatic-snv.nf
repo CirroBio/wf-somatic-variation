@@ -188,6 +188,8 @@ workflow snv {
             .combine(bam_for_germline, by: 2)
             .combine(ref)
         phased_bam_and_vcf = phase_contig(phase_inputs)
+            | combine(bam_for_germline.map{ bam, bai, meta -> [meta, bam, bai] }, by: 0)
+            | map{ meta, contig, vcf, tbi, bam, bai -> [meta, contig, bam, bai, vcf, tbi] }
 
         // Find quality filter to select variants for "full alignment"
         // processing, then generate bed files containing the candidates.
@@ -471,7 +473,15 @@ workflow snv {
                 | mix( het_tumor )
 
             // Phase and haplotag the selected vcf and bams (tumor-only or both).
-            tagged = het_to_phase | clairs_phase | clairs_haplotag
+            tagged = clairs_phase(het_to_phase)
+                | join(
+                    het_to_phase.map{
+                        meta, contig, vcf, tbi, bam, bai, fasta, fai, cache, ref_path ->
+                        [meta, contig, bam, bai, fasta, fai, cache, ref_path]
+                    },
+                    by: [0, 1]
+                )
+                | clairs_haplotag
 
             // Branch to separate tumor and normal tagged bams
             f_phased_channel = tagged
@@ -597,6 +607,7 @@ workflow snv {
             | combine(wf_build_regions.out.contigs_file, by: 0)
             | combine(ref)
             | concat_hap_filtered_vcf
+            | combine(ref)
             | clairs_merge_final
         }
 
