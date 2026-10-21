@@ -93,28 +93,19 @@ workflow snv {
         for_tensor_generation = clairs_to_extract_candidates.out.candidates_snvs
             | mix(clairs_to_extract_candidates.out.candidates_indels)
             | transpose
+            | combine(xam, by: 0)
+            | combine(ref)
+            | map{
+                meta, var_type, region, model, candidate, bam, bai, fasta, fai, ref_cache, ref_path ->
+                [meta, var_type, region, bam, bai, fasta, fai, ref_cache, ref_path, model, candidate]
+            }
         // Generate affirmative and negational tensors.
         affirmative = for_tensor_generation | clairs_to_create_affirmative_model_tensors
         negational =  for_tensor_generation | clairs_to_create_negational_model_tensors
 
         // Combine the affirmative and negational tensors.
         tensors = affirmative
-            | map{
-                meta, var_type, region, candidate, model, affirm -> 
-                [meta, var_type, region, candidate.getName(), model, candidate, affirm]
-            }
-            | combine(
-                negational
-                | map{
-                    meta, var_type, region, candidate, model, negat -> 
-                    [meta, var_type, region, candidate.getName(), model, candidate, negat]
-                },
-                by: [0, 1, 2, 3, 4]
-            )
-            | map{
-                meta, var_type, region, cand_name, model, candidate_aff, affirm, candidate_neg, negat -> 
-                [meta, var_type, region, candidate_aff, model, affirm, negat] 
-            }
+            | combine(negational, by: [0, 1, 2, 3, 4])
 
         // Perform prediction and pileup for each chunk.
         pileups = tensors
@@ -135,10 +126,12 @@ workflow snv {
         xam_tagged = pileup_raw_vcf
             | filter{meta, var_type, vcf -> var_type == 'snv'}
             | combine( contigs_channel, by: 0 )
+            | clairs_to_select_het_snps
             | combine(xam, by: 0)
             | combine(ref)
-            | clairs_to_select_het_snps
             | clairs_to_phase
+            | combine(xam, by: 0)
+            | combine(ref)
             | clairs_to_haplotag
 
         // Tag non-somatic sites using the database VCF, then merge

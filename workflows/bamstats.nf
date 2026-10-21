@@ -119,10 +119,7 @@ process get_region_coverage {
     output:
         tuple val(meta.sample), val(meta), env(passes), env(value), emit: pass
         tuple val(meta), path("${bed.baseName}_${meta.sample}_${meta.type}.filt.bed"), emit: filt_bed
-        tuple val(meta),
-            path("${meta.sample}_${meta.type}.regions.filt.bed.gz"),
-            path(dists),
-            path(thresholds), emit: mosdepth_tuple
+        tuple val(meta), path("${meta.sample}_${meta.type}.regions.filt.bed.gz"), emit: filt_regions
     shell:
     '''
     # Get intervals with average coverage above minimum

@@ -119,12 +119,6 @@ process clairs_to_extract_candidates {
         tuple val(meta),
             val("snv"),
             val(region),
-            path(tumor_bam),
-            path(tumor_bai),
-            path(ref), 
-            path(fai), 
-            path(ref_cache), 
-            env(REF_PATH),
             val(model),
             path("candidates/${region.contig}.*_snv"),
             emit: candidates_snvs,
@@ -132,12 +126,6 @@ process clairs_to_extract_candidates {
         tuple val(meta),
             val("indel"),
             val(region),
-            path(tumor_bam),
-            path(tumor_bai),
-            path(ref), 
-            path(fai), 
-            path(ref_cache), 
-            env(REF_PATH),
             val(model),
             path("candidates/${region.contig}.*_indel"),
             emit: candidates_indels,
@@ -201,8 +189,8 @@ process clairs_to_create_affirmative_model_tensors {
         tuple val(meta),
             val(variant_type),
             val(region),
-            path(candidate),
             val(model),
+            val("${candidate.getName()}"),
             path("pileup_tensor_can_affirmative/"),
             emit: full_tensors
             
@@ -245,8 +233,8 @@ process clairs_to_create_negational_model_tensors {
         tuple val(meta),
             val(variant_type),
             val(region),
-            path(candidate),
             val(model),
+            val("${candidate.getName()}"),
             path("pileup_tensor_can_negational/"),
             emit: full_tensors
             
@@ -277,17 +265,17 @@ process clairs_to_predict_pileup {
         tuple val(meta),
             val(variant_type),
             val(region),
-            path(candidate),
             val(model),
+            val(candidate_name),
             path("pileup_tensor_can_affirmative"),
             path("pileup_tensor_can_negational")
     output:
         tuple val(meta),
             val(variant_type),
             val(region),
-            path(candidate),
+            val(candidate_name),
             val(model),
-            path("predict/${candidate.getName()}"), 
+            path("predict/${candidate_name}"), 
             optional: true
             
     script:
@@ -308,9 +296,9 @@ process clairs_to_predict_pileup {
         if [ -e predict ]; then rm -r predict; fi
         mkdir -p predict/
         python3 \${CLAIRS_PATH}/clairs_to.py predict \\
-            --tensor_fn_acgt pileup_tensor_can_affirmative/${candidate.getName()} \\
-            --tensor_fn_nacgt pileup_tensor_can_negational/${candidate.getName()} \\
-            --predict_fn predict/${candidate.getName()} \\
+            --tensor_fn_acgt pileup_tensor_can_affirmative/${candidate_name} \\
+            --tensor_fn_nacgt pileup_tensor_can_negational/${candidate_name} \\
+            --predict_fn predict/${candidate_name} \\
             --chkpnt_fn_acgt \${CLAIR_MODELS_PATH}/${model_path}/pileup_affirmative.pkl \\
             --chkpnt_fn_nacgt \${CLAIR_MODELS_PATH}/${model_path}/pileup_negational.pkl \\
             ${run_gpu} \\
@@ -336,7 +324,7 @@ process clairs_to_pileup {
         tuple val(meta),
             val(variant_type),
             val(region),
-            path(candidate),
+            val(candidate_name),
             val(model),
             path("predicted/*"),
             path(ref), 
@@ -347,7 +335,7 @@ process clairs_to_pileup {
     output:
         tuple val(meta),
             val(variant_type),
-            path("vcf_output/p_${candidate.getName()}.vcf"),
+            path("vcf_output/p_${candidate_name}.vcf"),
             emit: pileup_vcf,
             optional: true
             
@@ -358,8 +346,8 @@ process clairs_to_pileup {
         if [ -e vcf_output ]; then rm -r vcf_output; fi
         mkdir -p vcf_output
         python3 \${CLAIRS_PATH}/clairs_to.py call_variants \\
-            --predict_fn predicted/${candidate.getName()} \\
-            --call_fn vcf_output/p_${candidate.getName()}.vcf \\
+            --predict_fn predicted/${candidate_name} \\
+            --call_fn vcf_output/p_${candidate_name}.vcf \\
             --ref ${ref} \\
             --platform ont \\
             --likelihood_matrix_data \${CLAIR_MODELS_PATH}/${likelihood_mat_path}/likelihood_matrix.txt \\
@@ -482,13 +470,7 @@ process clairs_to_select_het_snps {
         tuple val(meta),
             val(variant_type),
             path("pileup.vcf"),
-            val(contig),
-            path(xam),
-            path(xam_idx),
-            path(ref), 
-            path(fai), 
-            path(ref_cache), 
-            env(REF_PATH)
+            val(contig)
             
     output:
         tuple val(meta),
@@ -496,12 +478,6 @@ process clairs_to_select_het_snps {
             val(contig),
             path("split_folder/${contig}.vcf.gz"),
             path("split_folder/${contig}.vcf.gz.tbi"),
-            path(xam),
-            path(xam_idx),
-            path(ref), 
-            path(fai), 
-            path(ref_cache),
-            env(REF_PATH),
             emit: het_sites
     shell:
         '''
@@ -542,12 +518,6 @@ process clairs_to_phase {
             val(contig),
             path("phased_${meta.sample}_${contig}.vcf.gz"), 
             path("phased_${meta.sample}_${contig}.vcf.gz.tbi"),
-            path(xam),
-            path(xam_idx),
-            path(ref), 
-            path(fai), 
-            path(ref_cache),
-            env(REF_PATH),
             emit: phased_data
     script:
         if (params.use_longphase)

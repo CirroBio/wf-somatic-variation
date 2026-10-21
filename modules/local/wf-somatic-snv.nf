@@ -249,12 +249,6 @@ process clairs_phase {
             val(contig), 
             path("phased_${meta.sample}_${meta.type}_${contig}.vcf.gz"), 
             path("phased_${meta.sample}_${meta.type}_${contig}.vcf.gz.tbi"), 
-            path(bam), 
-            path(bai), 
-            path(ref), 
-            path(fai), 
-            path(ref_cache), 
-            env(REF_PATH),
             emit: phased_data
     script:
         def use_indels = params.use_het_indels_for_phasing ? "--indels" : ""
@@ -454,19 +448,9 @@ process clairs_create_paired_tensors {
     output:
         tuple val(meta),
             val(region),
-            path(normal_bam),
-            path(normal_bai),
-            path(tumor_bam),
-            path(tumor_bai),
-            path(split_beds),
-            path(ref), 
-            path(fai), 
-            path(ref_cache), 
-            env(REF_PATH),
             val(model),
             val(variant_type),
-            path(candidate),
-            path(intervals),
+            val("${intervals.getName()}"),
             path("pileup_tensor_can/")
             
     script:
@@ -503,24 +487,14 @@ process clairs_predict_pileup {
     input:
         tuple val(meta),
             val(region),
-            path(normal_bam, stageAs: "normal/*"),
-            path(normal_bai, stageAs: "normal/*"),
-            path(tumor_bam, stageAs: "tumor/*"),
-            path(tumor_bai, stageAs: "tumor/*"),
-            path(split_beds),
-            path(ref), 
-            path(fai), 
-            path(ref_cache), 
-            env(REF_PATH),
             val(model),
             val(variant_type),
-            path(candidate),
-            path(intervals),
+            val(intervals_name),
             path(tensor)
     output:
         tuple val(meta),
             val(variant_type),
-            path("vcf_output/${variant_type == 'indel' ? 'indel_p' : 'p'}_${intervals.getName()}.vcf"),
+            path("vcf_output/${variant_type == 'indel' ? 'indel_p' : 'p'}_${intervals_name}.vcf"),
             optional: true
             
     script:
@@ -546,8 +520,8 @@ process clairs_predict_pileup {
         """
         mkdir -p vcf_output/
         python3 \$CLAIRS_PATH/clairs.py predict \\
-            --tensor_fn ${tensor}/${intervals.getName()} \\
-            --call_fn vcf_output/${p_prefix}_${intervals.getName()}.vcf \\
+            --tensor_fn ${tensor}/${intervals_name} \\
+            --call_fn vcf_output/${p_prefix}_${intervals_name}.vcf \\
             --chkpnt_fn ${pileup_pkl} \\
             --platform ont \\
             ${run_gpu} \\
@@ -615,15 +589,7 @@ process clairs_create_fullalignment_paired_tensors {
         tuple val(meta),
             val(variant_type),
             val(contig),
-            path(normal_bam),
-            path(normal_bai),
-            path(tumor_bam),
-            path(tumor_bai),
-            path(ref), 
-            path(fai), 
-            path(ref_cache), 
-            env(REF_PATH),
-            path(intervals),
+            val("${intervals.getName()}"),
             path("fa_tensor_can/"),
             val(model),
             emit: full_tensors
@@ -661,21 +627,13 @@ process clairs_predict_full {
         tuple val(meta),
             val(variant_type),
             val(contig),
-            path(normal_bam, stageAs: "normal/*"),
-            path(normal_bai, stageAs: "normal/*"),
-            path(tumor_bam, stageAs: "tumor/*"),
-            path(tumor_bai, stageAs: "tumor/*"),
-            path(ref), 
-            path(fai), 
-            path(ref_cache), 
-            env(REF_PATH),
-            path(intervals),
+            val(intervals_name),
             path(tensor),
             val(model)
     output:
         tuple val(meta),
             val(variant_type),
-            path("vcf_output/${variant_type == 'indel' ? 'indel_fa' : 'fa'}_${intervals.getName()}.vcf"),
+            path("vcf_output/${variant_type == 'indel' ? 'indel_fa' : 'fa'}_${intervals_name}.vcf"),
             emit: full_vcfs,
             optional: true
             
@@ -702,8 +660,8 @@ process clairs_predict_full {
         """
         mkdir -p vcf_output/
         python3 \$CLAIRS_PATH/clairs.py predict \\
-            --tensor_fn ${tensor}/${intervals.getName()} \\
-            --call_fn vcf_output/${fa_prefix}_${intervals.getName()}.vcf \\
+            --tensor_fn ${tensor}/${intervals_name} \\
+            --call_fn vcf_output/${fa_prefix}_${intervals_name}.vcf \\
             --chkpnt_fn ${fa_pkl} \\
             --platform ont \\
             ${run_gpu} \\
@@ -822,10 +780,6 @@ process concat_hap_filtered_vcf {
             val(variant_type),
             path("${variant_type}_pileup_filter.vcf"),
             path("${variant_type}_full_alignment_filter.vcf"),
-            path(ref), 
-            path(fai), 
-            path(ref_cache), 
-            env(REF_PATH),
             emit: filtered_vcfs
 
     script:

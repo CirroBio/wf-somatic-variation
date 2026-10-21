@@ -56,14 +56,7 @@ process validate_modbam {
             path(reference_cache), 
             env(REF_PATH)
     output:
-        tuple path(alignment), 
-            path(alignment_index), 
-            val(meta), 
-            path(reference), 
-            path(reference_index), 
-            path(reference_cache), 
-            env(REF_PATH),
-            env(valid)
+        tuple val(meta), env(valid)
 
     script:
     """
@@ -94,14 +87,7 @@ process sample_probs {
             path(reference_cache), 
             env(REF_PATH)
     output:
-        tuple path(alignment), 
-            path(alignment_index), 
-            val(meta), 
-            path(reference), 
-            path(reference_index), 
-            path(reference_cache), 
-            env(REF_PATH),
-            env(probs)
+        tuple val(meta), env(probs)
 
     script:
     // Set `--interval-size` to 5Mb to speed up sampling, and `--only-mapped -p 0.1` to be consistent with `pileup`
@@ -392,12 +378,17 @@ workflow mod {
         }
 
         // Call modified bases
-        alignment.combine( reference ) | validate_modbam
+        mod_inputs = alignment.combine( reference )
+        validate_modbam(mod_inputs)
 
         // Warn of invalid bam files
-        validate_modbam.out.branch{
-            stdbam: it[-1] == '65'
-            modbam: it[-1] == '0'
+        validate_modbam.out
+            .join(mod_inputs.map{ [it[2], it] })
+            .branch{ meta, valid, inputs ->
+                stdbam: valid == '65'
+                    return inputs
+                modbam: valid == '0'
+                    return inputs
             }.set{validated_bam}
         validated_bam.stdbam.subscribe{
             it -> log.warn "Input ${it[1]} is not a modified bam file."
@@ -411,7 +402,9 @@ workflow mod {
         }
 
         // First, compute the sample_probs
-        modkit_probs = sample_probs(validated_bam.modbam.map{it[0..-2]})
+        modkit_probs = sample_probs(validated_bam.modbam)
+        | join(validated_bam.modbam.map{ [it[2], it] })
+        | map{ meta, probs, inputs -> inputs + [probs] }
         | combine(bed)
         | combine(chroms)
 
