@@ -1237,7 +1237,7 @@ def get_sample_sheet(Path sample_sheet, ArrayList required_sample_types) {
     // in STDOUT. Thus, we use the somewhat clunky construct with `concat` and `last`
     // below. This lets the CSV channel only start to emit once the error checking is
     // done.
-    ch_err = validate_sample_sheet(sample_sheet, required_sample_types).map { stdoutput ->
+    ch_err = validate_sample_sheet(sample_sheet, required_sample_types).map { stdoutput, sample_sheet_file ->
         // check if there was an error message
         if (stdoutput) error "Invalid sample sheet: ${stdoutput}."
         stdoutput
@@ -1283,6 +1283,7 @@ def get_sample_sheet(Path sample_sheet, ArrayList required_sample_types) {
  * @return: string (optional)
  */
 process validate_sample_sheet {
+    publishDir params.out_dir, mode: 'copy', overwrite: true
     cpus 1
     label "ingress"
     label "wf_common"
@@ -1291,7 +1292,7 @@ process validate_sample_sheet {
         path "sample_sheet.csv"
         val required_sample_types
     output: 
-        stdout
+        tuple stdout, path("sample_sheet.csv")
     script:
     String req_types_arg = required_sample_types ? "--required_sample_types "+required_sample_types.join(" ") : ""
     """
